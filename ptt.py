@@ -53,14 +53,14 @@ def configure_socket(sock: socket.socket) -> None:
     try:
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-       
+        
         if hasattr(socket, 'TCP_KEEPIDLE'):
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, KEEPALIVE_IDLE)
         if hasattr(socket, 'TCP_KEEPINTVL'):
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, KEEPALIVE_INTERVAL)
         if hasattr(socket, 'TCP_KEEPCNT'):
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, KEEPALIVE_PROBES)
-           
+            
         sock.settimeout(SOCKET_TIMEOUT)
         logger.debug("Socket configured")
     except OSError as e:
@@ -120,7 +120,7 @@ def send_audio(sock: socket.socket) -> None:
     stream = None
     bytes_per_frame = 2  # int16
     silence = b'\x00' * (CHUNK * bytes_per_frame)
-   
+    
     try:
         stream = sd.RawInputStream(
             samplerate=SAMPLE_RATE,
@@ -129,7 +129,7 @@ def send_audio(sock: socket.socket) -> None:
             blocksize=CHUNK,
         )
         stream.start()
-       
+        
         while not stop_event.is_set():
             try:
                 if ptt_active.is_set():
@@ -142,19 +142,16 @@ def send_audio(sock: socket.socket) -> None:
                     # PTT not pressed - send silence and drain microphone
                     stream.read(CHUNK)  # Drain buffer but don't use
                     sock.sendall(silence)
-               
+                
             except socket.timeout:
                 logger.error("Send timeout - connection dead")
-                stop_event.set()
                 break
             except (OSError, BrokenPipeError, ConnectionError) as e:
                 logger.error(f"Send error: {e}")
-                stop_event.set()
                 break
-               
+                
     except Exception as e:
         logger.error(f"Audio send init failed: {e}")
-        stop_event.set()
     finally:
         if stream is not None:
             try:
@@ -174,7 +171,7 @@ def recv_audio(sock: socket.socket) -> None:
     bytes_per_frame = 2
     expected = CHUNK * bytes_per_frame
     stream = None
-   
+    
     try:
         stream = sd.RawOutputStream(
             samplerate=SAMPLE_RATE,
@@ -183,42 +180,38 @@ def recv_audio(sock: socket.socket) -> None:
             blocksize=CHUNK,
         )
         stream.start()
-       
+        
         while not stop_event.is_set():
             try:
                 buf = b""
-               
+                
                 while len(buf) < expected and not stop_event.is_set():
                     remaining = expected - len(buf)
                     try:
                         chunk = sock.recv(remaining)
                     except socket.timeout:
                         logger.error("Receive timeout - connection dead")
-                        stop_event.set()
                         return
-                       
+                        
                     if not chunk:
                         logger.info("Peer closed connection")
-                        # stop_event.set()
                         return
                     buf += chunk
-               
+                
                 if stop_event.is_set():
                     break
-               
+                
                 if len(buf) == expected:
                     stream.write(buf)
                 else:
                     logger.warning(f"Buffer mismatch: {len(buf)} != {expected}")
-                   
+                    
             except (OSError, ConnectionError) as e:
                 logger.error(f"Receive error: {e}")
-                stop_event.set()
                 break
-               
+                
     except Exception as e:
         logger.error(f"Audio receive init failed: {e}")
-        stop_event.set()
     finally:
         if stream is not None:
             try:
@@ -254,7 +247,7 @@ def on_release(key) -> None:
             logger.info("Escape pressed - shutting down")
             stop_event.set()
             return False  # Stop listener
-       
+        
         # Check for PTT key release
         if hasattr(key, 'name') and key.name == PTT_KEY:
             with ptt_lock:
@@ -301,9 +294,9 @@ def listen_for_peer(port: int) -> None:
             conn, addr = sock.accept()
             peer_ip = addr[0]
             logger.info(f"Incoming connection from {peer_ip}:{addr[1]}")
-           
+            
             configure_socket(conn)
-           
+            
             with connection_lock:
                 if connection is None and not stop_event.is_set():
                     connection = conn
@@ -322,7 +315,7 @@ def listen_for_peer(port: int) -> None:
                         safe_close_socket(conn)
                         logger.info("Keeping outgoing connection (tie-breaker)")
                     break
-                   
+                    
         except socket.timeout:
             continue
         except OSError as e:
@@ -346,7 +339,7 @@ def connect_to_peer(peer_ip: str, port: int, retry_seconds: int) -> None:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(5.0)
             sock.connect((peer_ip, port))
-           
+            
             logger.info("Outgoing connection established")
             configure_socket(sock)
 
@@ -374,12 +367,12 @@ def connect_to_peer(peer_ip: str, port: int, retry_seconds: int) -> None:
         except (OSError, ConnectionError) as e:
             if sock is not None:
                 safe_close_socket(sock)
-               
+                
             if stop_event.is_set() or connected_event.is_set():
                 break
-               
+                
             logger.info(f"Connect failed: {e}. Retrying in {retry_seconds}s...")
-           
+            
             # Sleep in small increments to respond quickly to stop_event
             for _ in range(retry_seconds):
                 if stop_event.is_set() or connected_event.is_set():
@@ -392,18 +385,18 @@ def connect_to_peer(peer_ip: str, port: int, retry_seconds: int) -> None:
 def cleanup_all() -> None:
     """Clean up all resources."""
     global connection, listener_socket
-   
+    
     logger.info("Cleaning up...")
-   
+    
     with connection_lock:
         if connection is not None:
             safe_close_socket(connection)
             connection = None
-   
+    
     if listener_socket is not None:
         safe_close_socket(listener_socket)
         listener_socket = None
-   
+    
     logger.info("Cleanup complete")
 
 
@@ -417,7 +410,7 @@ def main() -> int:
     logger.info(f"PTT Key: {PTT_KEY.upper()}")
     logger.info(f"Retry: {RETRY_SECONDS}s")
     logger.info("=" * 60)
-   
+    
     # Check audio devices
     try:
         devices = sd.query_devices()
@@ -447,7 +440,7 @@ def main() -> int:
         else:
             # Clean exit requested
             break
-   
+    
     cleanup_all()
     logger.info("Exited cleanly")
     return 0
@@ -459,7 +452,7 @@ def run_connection_cycle() -> bool:
     Returns True if clean exit requested, False if should reconnect.
     """
     global connection, connected_event
-   
+    
     # Reset connection state
     connected_event.clear()
     with connection_lock:
@@ -478,7 +471,7 @@ def run_connection_cycle() -> bool:
         daemon=True,
         name="Connector"
     )
-   
+    
     try:
         listener_thread.start()
         connector_thread.start()
@@ -522,7 +515,7 @@ def run_connection_cycle() -> bool:
     # Start audio threads
     t_send = threading.Thread(target=send_audio, args=(sock,), name="AudioSend")
     t_recv = threading.Thread(target=recv_audio, args=(sock,), name="AudioRecv")
-   
+    
     try:
         t_send.start()
         t_recv.start()
@@ -545,15 +538,15 @@ def run_connection_cycle() -> bool:
     # Shutdown this connection cycle
     logger.info("Closing connection...")
     safe_close_socket(sock)
-   
+    
     t_send.join(timeout=3.0)
     t_recv.join(timeout=3.0)
-   
+    
     if t_send.is_alive():
         logger.warning("Send thread did not exit cleanly")
     if t_recv.is_alive():
         logger.warning("Receive thread did not exit cleanly")
-   
+    
     # Return True if clean exit requested, False if should reconnect
     return stop_event.is_set()
 
@@ -566,4 +559,3 @@ if __name__ == "__main__":
         logger.critical(f"Unexpected error: {e}", exc_info=True)
         cleanup_all()
         raise SystemExit(1)
-
