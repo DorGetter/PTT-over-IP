@@ -6,7 +6,7 @@ import logging
 from typing import Optional
 
 import sounddevice as sd
-from dotenv import load_dotenv
+import yaml
 from pynput import keyboard
 
 # === Configure logging ===
@@ -18,12 +18,25 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # === Load configuration from .env ===
-load_dotenv()
+# Load configuration from YAML
+import sys
 
-PORT = int(os.getenv("P2T_PORT", "50007"))
-PEER_IP = os.getenv("P2T_PEER_IP", "127.0.0.1")
-RETRY_SECONDS = int(os.getenv("P2T_RETRY_SECONDS", "30"))
-PTT_KEY = os.getenv("PTT_KEY", "space")  # Default to spacebar
+# Get the directory where the executable (or script) is located
+if getattr(sys, 'frozen', False):
+    # Running as compiled executable
+    app_dir = os.path.dirname(sys.executable)
+else:
+    # Running as script
+    app_dir = os.path.dirname(__file__)
+
+config_path = os.path.join(app_dir, "config.yml")
+with open(config_path, "r") as f:
+    config = yaml.safe_load(f) or {}
+
+PORT = int(config.get("P2T_PORT", 5007))
+PEER_IP = config.get("P2T_PEER_IP", "127.0.0.1")
+RETRY_SECONDS = int(config.get("P2T_RETRY_SECONDS", 30))
+PTT_KEY = config.get("PTT_KEY", "space")
 
 # === Audio parameters ===
 SAMPLE_RATE = 16000  # Hz

@@ -1,0 +1,4 @@
+build/
+dist/
+ptt.spec
+.venv/
