@@ -1,4 +1,4 @@
 P2T_PORT: 5007
-P2T_PEER_IP: "62.90.95.10"
+P2T_PEER_IP: "xxx.xxx.xxx.xxx"
 P2T_RETRY_SECONDS: 30
 PTT_KEY: "space" # diffault "f14"
