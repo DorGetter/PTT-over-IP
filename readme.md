@@ -1,0 +1,6 @@
+# This for running the exe creator: 
+
+```
+pyinstaller --onefile --icon=app.ico --name ptt ptt.py 
+```
+
