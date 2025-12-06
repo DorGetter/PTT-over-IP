@@ -1,0 +1,4 @@
+P2T_PORT: 5007 # Do not touch.
+P2T_PEER_IP: "192.168.1.198" # partner IP
+P2T_RETRY_SECONDS: 10
+PTT_KEY: "f14"  #default "f14"
